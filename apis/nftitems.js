@@ -12,6 +12,7 @@ const Offer = mongoose.model('Offer');
 const Bid = mongoose.model('Bid');
 const Auction = mongoose.model('Auction');
 const Account = mongoose.model('Account');
+const auth = require("./middleware/auth");
 const BundleInfo = mongoose.model('BundleInfo');
 const Bundle = mongoose.model('Bundle');
 const BundleListing = mongoose.model('BundleListing');
@@ -1046,6 +1047,50 @@ router.post('/getSingleItemDetails', async (req, res) => {
     Logger.error(error);
     return res.json({
       status: 'failed'
+    });
+  }
+});
+
+router.post('/addSingleItemDetails', auth, async (req, res) => {
+  try {
+    let contractAddress = toLowerCase(req.body.contractAddress);
+    let tokenID = parseInt(req.body.tokenID);
+    let owner = toLowerCase(req.body.owner);
+    let tokenURI = req.body.tokenURI;
+    let nft = await NFTITEM.findOne({
+      contractAddress: contractAddress,
+      tokenID: tokenID
+    });
+    if (nft) {
+      return res.json({
+        status: "failed",
+        data: "NFT with this address already exists!",
+      });
+    } else {
+      try {
+        let newNFTItem = new NFTITEM();
+        newNFTItem.contractAddress = contractAddress;
+        newNFTItem.tokenID = tokenID;
+        newNFTItem.owner = owner;
+        newNFTItem.tokenURI = tokenURI;
+        await newNFTItem.save();
+        return res.json({
+          status: "success",
+          data: "New NFT successfully added!",
+        });
+      } catch (error) {
+        Logger.error(error);
+        return res.json({
+          status: 'failed',
+          data: "Failed to submit to database"
+        });
+      }
+    }    
+  } catch (error) {
+    Logger.error(error);
+    return res.json({
+      status: 'failed',
+      data: "Failed to submit to database"
     });
   }
 });

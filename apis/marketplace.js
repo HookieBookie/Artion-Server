@@ -12,6 +12,7 @@ const Account = mongoose.model("Account");
 const NotificationSetting = mongoose.model("NotificationSetting");
 
 const service_auth = require("./middleware/auth.tracker");
+const auth = require("./middleware/auth");
 const Logger = require("../services/logger");
 
 const sendEmail = require("../mailer/marketplaceMailer");
@@ -151,14 +152,13 @@ router.post("/itemListed", service_auth, async (req, res) => {
 router.post("/itemSold", service_auth, async (req, res) => {
   try {
     const { args, blockNumber, transactionHash } = req.body;
-    const [ sellerC, buyerC, nftC, tokenIdBN, quantityBN, paytokenC, unitPriceBN, pricePerItemBN ] = args;
+    const [ sellerC, buyerC, nftC, tokenIdBN, quantityBN, paytokenC, pricePerItemBN ] = args;
 
     const seller = sellerC.toLowerCase();
     const buyer = buyerC.toLowerCase();
     const nft = nftC.toLowerCase();
     const itemPayToken = [...PAYTOKENS, ...DISABLED_PAYTOKENS].find((token) => token.address.toLowerCase() === paytokenC.toLowerCase());
-    const unitPrice = ethers.utils.formatUnits(ethers.BigNumber.from(unitPriceBN.hex), itemPayToken.decimals);
-    const pricePerItem = ethers.utils.formatUnits(ethers.BigNumber.from(pricePerItemBN.hex), itemPayToken.decimals);
+    const pricePerItem = parseInt(pricePerItemBN.hex);
     const tokenId = parseInt(tokenIdBN.hex);
     const quantity = parseInt(quantityBN.hex);
 
@@ -170,10 +170,10 @@ router.post("/itemSold", service_auth, async (req, res) => {
     if (category) {
       let token = await NFTITEM.findOne({
         contractAddress: nft,
-        tokenID: tokenId,
-        blockNumber: { $lte: blockNumber },
+        tokenID: tokenId
       });
       if (token) {
+        token.owner = buyer;
         token.price = 0;
         token.paymentToken = "ftm";
         token.priceInUSD = 0;
@@ -252,17 +252,21 @@ router.post("/itemSold", service_auth, async (req, res) => {
       const existingHistory = await TradeHistory.find({ txHash: transactionHash });
       if (!existingHistory.length) {
         history = new TradeHistory();
-        history.collectionAddress = nft;
-        history.from = seller;
-        history.to = buyer;
-        history.tokenID = tokenId;
-        history.price = pricePerItem;
-        history.paymentToken = itemPayToken.address;
-        history.priceInUSD = priceInUSD;
-        history.value = quantity;
-        history.txHash = transactionHash;
-        await history.save();
       }
+      else {
+        history = existingHistory[0];
+      }
+      history.collectionAddress = nft;
+      history.from = seller;
+      history.to = buyer;
+      history.tokenID = tokenId;
+      history.price = pricePerItem;
+      history.paymentToken = itemPayToken.address;
+      history.priceInUSD = priceInUSD;
+      history.value = quantity;
+      history.txHash = transactionHash;
+      await history.save();
+      
     } catch (err) {
       Logger.error("[ItemSold] Failed to save new TradeHistory: ", err.message)
     }
@@ -272,7 +276,6 @@ router.post("/itemSold", service_auth, async (req, res) => {
       owner: seller,
       minter: nft,
       tokenID: tokenId,
-      blockNumber: { $lte: blockNumber}
     });
 
     Logger.info("[ItemSold] Success: ", { transactionHash, blockNumber });
@@ -314,17 +317,15 @@ router.post("/itemUpdated", service_auth, async (req, res) => {
       }
     }
     // update price from listing
-    let list = await Listing.findOne({
-      owner: owner,
+    let list = await Listing.findOne({      
       minter: nft,
       tokenID: tokenId,
-      blockNumber: {$lt: blockNumber},
+      owner: owner
     });
     if (list) {
       list.price = newPricePerItem;
       list.paymentToken = itemPayToken.address;
       list.priceInUSD = newPriceInUSD;
-      list.blockNumber = blockNumber;
       await list.save();
     }
 
@@ -358,8 +359,7 @@ router.post("/itemCanceled", service_auth, async (req, res) => {
     if (category) {
       let token = await NFTITEM.findOne({
         contractAddress: nft,
-        tokenID: tokenId,
-        blockNumber: {$lt: blockNumber},
+        tokenID: tokenId
       });
       if (token) {
         token.price = 0;
@@ -371,10 +371,9 @@ router.post("/itemCanceled", service_auth, async (req, res) => {
     }
     // remove from listing
     await Listing.deleteMany({
-      owner: owner,
       minter: nft,
       tokenID: tokenId,
-      blockNumber: {$lt: blockNumber}
+      owner: owner,
     });
 
     Logger.info("[ItemCanceled] Success: ", { transactionHash, blockNumber });
@@ -499,10 +498,9 @@ router.post("/offerCanceled", service_auth, async (req, res) => {
     const tokenId = parseInt(tokenIdBN.hex);
 
     await Offer.deleteMany({
-      creator: creator,
       minter: nft,
       tokenID: tokenId,
-      blockNumber: {$lt: blockNumber},
+      creator: creator
     });
 
     // now send email

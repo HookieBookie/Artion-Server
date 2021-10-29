@@ -6,8 +6,8 @@ const messageUtils = require("./message.utils");
 
 const app_url = process.env.APP_URL;
 const storage_url = process.env.RUNTIME
-  ? "https://storage.testnet.artion.io/image/"
-  : "https://storage.artion.io/image/";
+  ? "http://localhost:5001/."
+  : "http://localhost:5001/.";
 
 const mongoose = require("mongoose");
 const toLowerCase = require("../utils/utils");

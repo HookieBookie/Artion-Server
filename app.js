@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const port = process.env.PORT || 5001;
-
+const requestIP = require("request-ip");
 const Logger = require('./services/logger');
 const morganMiddleware = require('./apis/middleware/morgan');
 
@@ -73,11 +73,11 @@ const connect = () => {
   const db = mongoose.connection;
   db.on("error", console.error.bind(console, "connection error:"));
   db.once("open", function () {
-    Logger.info("artion server has been connected to the db server");
+    Logger.info("digibirr server has been connected to the db server");
     Logger.info("price feed has been started");
     priceFeed.runPriceFeed();
     app.listen(port, () => {
-      Logger.info(`artion server is running at port ${port}`);
+      Logger.info(`digibirr server is running at port ${port}`);
     });
   });
 };

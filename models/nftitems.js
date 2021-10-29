@@ -9,7 +9,7 @@ const NFTITEM = mongoose.Schema(
     thumbnailPath: { type: String, default: "-" },
     symbol: { type: String },
     name: { type: String }, //for search filter
-    owner: { type: String },
+    owner: { type: String, required: true },
     supply: { type: Number, default: 1 },
     royalty: { type: Number, default: 0 },
     category: [{ type: String }],

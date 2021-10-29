@@ -1,9 +1,9 @@
 require("dotenv").config();
 const sgMail = require("@sendgrid/mail");
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-const foundationEmail = "support.artion@fantom.foundation";
+const foundationEmail = "jamie.glasby@gmail.com";
 
-const adminEmails = ["artion@fantom.foundation"];
+const adminEmails = ["jamie.glasby@gmail.com"];
 
 const createDenyMessage = (data) => {
   return {

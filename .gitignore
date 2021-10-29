@@ -13,3 +13,8 @@ test.js
 .DS_Store
 
 /logs
+.env.sample
+.firebase/hosting..cache
+.env.sample
+.firebase/hosting.YXBpcw.cache
+.firebaserc
