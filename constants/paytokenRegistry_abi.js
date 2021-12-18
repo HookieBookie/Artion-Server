@@ -1,7 +1,7 @@
 const PaytokenRegistryABI = {
   address: {
-    mainnet: '0xF8f84d3c73c0836801A2a6d616135318822a0E49',
-    testnet: '0x81Ed1Fb42D26b1813c5E3a43874d3485a42F8692'
+    mainnet: '0x16F1793bF4feBEb31eccDab82631Fd36d233283c',
+    testnet: '0x4d30F7B21bD5bb8664b37b3B81867c01f8A7aa61'
   },
   abi: [
     {

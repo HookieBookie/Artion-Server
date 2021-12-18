@@ -47,7 +47,7 @@ router.post('/collectiondetails', auth, async (req, res) => {
   let owner = extractAddress(req, res);
   let signature = req.body.signature;
   let retrievedAddr = req.body.signatureAddress;
-
+  
   if (!ethers.utils.isAddress(erc721Address))
     return res.json({
       status: 'failed',
@@ -64,7 +64,7 @@ router.post('/collectiondetails', auth, async (req, res) => {
       status: 'failed',
       data: 'Invalid signature from user'
     });
-
+    
   // validate to see whether the contract is either 721 or 1155, otherwise, reject
 
   try {

@@ -19,3 +19,7 @@ firebase.json
 
 package-lock.json
 .env
+404.html
+Dockerfile
+index.html
+config/fantomsea_tommy_service.json

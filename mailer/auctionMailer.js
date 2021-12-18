@@ -7,8 +7,8 @@ const messageUtils = require("./message.utils");
 
 const app_url = process.env.APP_URL;
 const storage_url = process.env.RUNTIME
-  ? "https://storage.testnet.artion.io/image/"
-  : "https://storage.artion.io/image/";
+  ? "https://digibirr-marketplace.web.app/image/"
+  : "https://digibirr-marketplace.web.app/image/";
 
 const getNFTThumbnailPath = async (nft, tokenID) => {
   try {

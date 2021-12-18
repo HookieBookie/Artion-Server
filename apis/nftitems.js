@@ -19,7 +19,7 @@ const BundleOffer = mongoose.model('BundleOffer');
 const TradeHistory = mongoose.model('TradeHistory');
 const UnlockableContents = mongoose.model('UnlockableContents');
 const DisabledExplorerCollection = mongoose.model('DisabledExplorerCollection');
-
+const auth = require("./middleware/auth");
 const orderBy = require('lodash.orderby');
 const toLowerCase = require('../utils/utils');
 
@@ -173,10 +173,10 @@ const selectTokens = async (req, res) => {
   tokenTypes = tokenTypes.map((tt) => [tt.minterAddress, tt.type]);
   try {
     // get options from request & process
-    const category = req.body?.category;
-    const wallet = req.body?.address && req.body.address.toLowerCase(); // account address from meta mask
-    const filterCollections = req.body.collectionAddresses?.length
-      ? req.body.collectionAddresses.map((coll) => coll.toLowerCase())
+    const category = req.body.category;
+    const wallet = req.body.address && req.body.address.toLowerCase(); // account address from meta mask
+    const filterCollections = req.body.collections.length
+      ? req.body.collections.map((coll) => coll.toLowerCase())
       : null;
     const filters = req.body.filterby; //status -> array or null
     // create a sort by option
@@ -769,92 +769,99 @@ const selectBundles = async (req, res) => {
 };
 
 router.post('/fetchTokens', async (req, res) => {
-  let type = req.body.type; // type - item type
-  let sortby = req.body.sortby; //sort -> string param
-  let from = parseInt(req.body.from);
-  let count = parseInt(req.body.count);
+  try{
+    let type = req.body.type; // type - item type
+    let sortby = req.body.sortby; //sort -> string param
+    let from = parseInt(req.body.from);
+    let count = parseInt(req.body.count);
 
-  let items = [];
-  if (type === 'all') {
-    let nfts = await selectTokens(req, res);
-    let bundles = await selectBundles(req, res);
-    items = [...nfts, ...bundles];
-  } else if (type === 'single') {
-    items = await selectTokens(req, res);
-  } else if (type === 'bundle') {
-    items = await selectBundles(req, res);
-  }
-
-  let updatedItems = updatePrices(items);
-
-  let data = sortItems(updatedItems, sortby);
-
-  let _searchResults = data.slice(from, from + count);
-
-  let searchResults = _searchResults.map((sr) => ({
-    ...(sr.contentType != null && sr.contentType != undefined
-      ? { contentType: sr.contentType }
-      : {}),
-    ...(sr.contractAddress != null && sr.contractAddress != undefined
-      ? { contractAddress: sr.contractAddress }
-      : {}),
-    ...(sr.imageURL != null && sr.imageURL != undefined
-      ? { imageURL: sr.imageURL }
-      : {}),
-    ...(sr.name != null && sr.name != undefined ? { name: sr.name } : {}),
-    ...(sr.price != null && sr.price != undefined ? { price: sr.price } : {}),
-    ...(sr.paymentToken != null && sr.paymentToken != undefined
-      ? { paymentToken: sr.paymentToken }
-      : {}),
-    ...(sr.priceInUSD != null && sr.priceInUSD != undefined
-      ? { priceInUSD: sr.priceInUSD }
-      : {}),
-    ...(sr.supply != null && sr.supply != undefined
-      ? { supply: sr.supply }
-      : {}),
-    ...(sr.thumbnailPath != null && sr.thumbnailPath != undefined
-      ? { thumbnailPath: sr.thumbnailPath }
-      : {}),
-    ...(sr.tokenID != null && sr.tokenID != undefined
-      ? { tokenID: sr.tokenID }
-      : {}),
-    ...(sr.tokenType != null && sr.tokenType != undefined
-      ? { tokenType: sr.tokenType }
-      : {}),
-    ...(sr.tokenURI != null && sr.tokenURI != undefined
-      ? { tokenURI: sr.tokenURI }
-      : {}),
-    ...(sr.items != null && sr.items != undefined ? { items: sr.items } : {}),
-    ...(sr.liked != null && sr.liked != undefined ? { liked: sr.liked } : {}),
-    ...(sr._id != null && sr._id != undefined ? { _id: sr._id } : {}),
-    ...(sr.holderSupply != null && sr.holderSupply != undefined
-      ? { holderSupply: sr.holderSupply }
-      : {}),
-    ...(sr.saleEndsAt != null && sr.saleEndsAt != undefined
-      ? { saleEndsAt: sr.saleEndsAt }
-      : {}),
-    ...(sr.lastSalePrice != null && sr.lastSalePrice != undefined
-      ? { lastSalePrice: sr.lastSalePrice }
-      : {}),
-    ...(sr.lastSalePricePaymentToken != null &&
-    sr.lastSalePricePaymentToken != undefined
-      ? { lastSalePricePaymentToken: sr.lastSalePricePaymentToken }
-      : {}),
-    ...(sr.lastSalePriceInUSD != null && sr.lastSalePriceInUSD != undefined
-      ? { lastSalePriceInUSD: sr.lastSalePriceInUSD }
-      : {}),
-    ...(sr.isAppropriate != null && sr.isAppropriate != undefined
-      ? { isAppropriate: sr.isAppropriate }
-      : { isAppropriate: false })
-  }));
-
-  return res.json({
-    status: 'success',
-    data: {
-      tokens: searchResults,
-      total: data.length
+    let items = [];
+    if (type === 'all') {
+      let nfts = await selectTokens(req, res);
+      let bundles = await selectBundles(req, res);
+      items = [...nfts, ...bundles];
+    } else if (type === 'single') {
+      items = await selectTokens(req, res);
+    } else if (type === 'bundle') {
+      items = await selectBundles(req, res);
     }
-  });
+
+    let updatedItems = updatePrices(items);
+
+    let data = sortItems(updatedItems, sortby);
+
+    let _searchResults = data.slice(from, from + count);
+
+    let searchResults = _searchResults.map((sr) => ({
+      ...(sr.contentType != null && sr.contentType != undefined
+        ? { contentType: sr.contentType }
+        : {}),
+      ...(sr.contractAddress != null && sr.contractAddress != undefined
+        ? { contractAddress: sr.contractAddress }
+        : {}),
+      ...(sr.imageURL != null && sr.imageURL != undefined
+        ? { imageURL: sr.imageURL }
+        : {}),
+      ...(sr.name != null && sr.name != undefined ? { name: sr.name } : {}),
+      ...(sr.price != null && sr.price != undefined ? { price: sr.price } : {}),
+      ...(sr.paymentToken != null && sr.paymentToken != undefined
+        ? { paymentToken: sr.paymentToken }
+        : {}),
+      ...(sr.priceInUSD != null && sr.priceInUSD != undefined
+        ? { priceInUSD: sr.priceInUSD }
+        : {}),
+      ...(sr.supply != null && sr.supply != undefined
+        ? { supply: sr.supply }
+        : {}),
+      ...(sr.thumbnailPath != null && sr.thumbnailPath != undefined
+        ? { thumbnailPath: sr.thumbnailPath }
+        : {}),
+      ...(sr.tokenID != null && sr.tokenID != undefined
+        ? { tokenID: sr.tokenID }
+        : {}),
+      ...(sr.tokenType != null && sr.tokenType != undefined
+        ? { tokenType: sr.tokenType }
+        : {}),
+      ...(sr.tokenURI != null && sr.tokenURI != undefined
+        ? { tokenURI: sr.tokenURI }
+        : {}),
+      ...(sr.items != null && sr.items != undefined ? { items: sr.items } : {}),
+      ...(sr.liked != null && sr.liked != undefined ? { liked: sr.liked } : {}),
+      ...(sr._id != null && sr._id != undefined ? { _id: sr._id } : {}),
+      ...(sr.holderSupply != null && sr.holderSupply != undefined
+        ? { holderSupply: sr.holderSupply }
+        : {}),
+      ...(sr.saleEndsAt != null && sr.saleEndsAt != undefined
+        ? { saleEndsAt: sr.saleEndsAt }
+        : {}),
+      ...(sr.lastSalePrice != null && sr.lastSalePrice != undefined
+        ? { lastSalePrice: sr.lastSalePrice }
+        : {}),
+      ...(sr.lastSalePricePaymentToken != null &&
+      sr.lastSalePricePaymentToken != undefined
+        ? { lastSalePricePaymentToken: sr.lastSalePricePaymentToken }
+        : {}),
+      ...(sr.lastSalePriceInUSD != null && sr.lastSalePriceInUSD != undefined
+        ? { lastSalePriceInUSD: sr.lastSalePriceInUSD }
+        : {}),
+      ...(sr.isAppropriate != null && sr.isAppropriate != undefined
+        ? { isAppropriate: sr.isAppropriate }
+        : { isAppropriate: false })
+    }));
+
+    return res.json({
+      status: 'success',
+      data: {
+        tokens: searchResults,
+        total: data.length
+      }
+    });
+  } catch (error) {
+    Logger.error(error);
+    return res.json({
+      status: 'failed'
+    });
+  }
 });
 
 const parseAddress = (data) => {

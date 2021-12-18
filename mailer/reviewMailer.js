@@ -10,8 +10,8 @@ const createDenyMessage = (data) => {
     to: data.to,
     from: foundationEmail,
     subject: data.subject,
-    text: "artion notification",
-    html: `Your collection has been denied to register on Artion. <br/><br/> reason : ${data.reason} </br></br> Thank You.  <br/><br/>`,
+    text: "NFTHab notification",
+    html: `Your collection has been denied registration on NFTHab. <br/><br/> reason : ${data.reason} </br></br> Thank You.  <br/><br/>`,
   };
 };
 
@@ -20,8 +20,8 @@ const createApproveMessage = (data) => {
     to: data.to,
     from: foundationEmail,
     subject: data.subject,
-    text: "artion notification",
-    html: "Dear Artion User! <br/> Your collection has been successfully registered in Artion. ",
+    text: "NFTHab notification",
+    html: "Dear NFTHab User! <br/> Your collection has been successfully registered in NFTHab. ",
   };
 };
 
@@ -52,7 +52,7 @@ const notifyAdminForNewCollectionApplication = () => {
     to: adminEmails,
     from: foundationEmail,
     subject: "New Application",
-    text: "artion notification",
+    text: "NFTHab notification",
     html: "New collection has been submitted for your review.",
   };
   sgMail.sendMultiple(message).then(
@@ -69,7 +69,7 @@ const notifyInternalCollectionDeployment = (address, email) => {
     to: email,
     from: foundationEmail,
     subject: "Collection Created",
-    text: "artion notification",
+    text: "NFTHab notification",
     html: `New collection has been deployed with address ${address}`,
   };
   sgMail.send(message).then(

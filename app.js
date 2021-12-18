@@ -4,7 +4,7 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const port = process.env.PORT || 5001;
+const port = process.env.PORT;
 
 const Logger = require('./services/logger');
 const morganMiddleware = require('./apis/middleware/morgan');
@@ -73,11 +73,13 @@ const connect = () => {
   const db = mongoose.connection;
   db.on("error", console.error.bind(console, "connection error:"));
   db.once("open", function () {
-    Logger.info("artion server has been connected to the db server");
+    Logger.info("nfthab server has been connected to the db server");
     Logger.info("price feed has been started");
     priceFeed.runPriceFeed();
+    process.env.UPLOAD_PATH = __dirname;
+    Logger.info("PATH: " + process.env.UPLOAD_PATH);
     app.listen(port, () => {
-      Logger.info(`artion server is running at port ${port}`);
+      Logger.info(`nfthab server is running at port ${port}`);
     });
   });
 };
