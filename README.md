@@ -1,5 +1,5 @@
-# Artion-Server
-Code for server side deployment of Fantom Artion Marketplace.
+# NFTHab-Server
+Code for server side deployment of Fantom NFTHab Marketplace.
 
 ## Project Setup
 ```
