@@ -9,7 +9,7 @@ const Collection = mongoose.model('Collection');
 const Category = mongoose.model('Category');
 const ERC1155CONTRACT = mongoose.model('ERC1155CONTRACT');
 const ERC721CONTRACT = mongoose.model('ERC721CONTRACT');
-
+const Artist = mongoose.model('Artist');
 const auth = require('./middleware/auth');
 const admin_auth = require('./middleware/auth.admin');
 const toLowerCase = require('../utils/utils');
@@ -32,6 +32,9 @@ const provider = new ethers.providers.JsonRpcProvider(
   process.env.NETWORK_RPC,
   parseInt(process.env.NETWORK_CHAINID)
 );
+
+const adminAddress = process.env.ADMINADDRESS;
+
 const ownerWallet = new ethers.Wallet(process.env.ROYALTY_PK, provider);
 
 const marketplaceSC = new ethers.Contract(
@@ -40,204 +43,231 @@ const marketplaceSC = new ethers.Contract(
   ownerWallet
 );
 
+const isAdmin = (msgSender) => {
+  return toLowerCase(adminAddress) == toLowerCase(msgSender);
+};
+
+const isArtist = async (address) => {
+  let _isAdmin = isAdmin(address);
+  if (_isAdmin) return true;
+  let artist = await Artist.findOne({ address: address });
+  if (artist) return true;
+  else return false;
+};
+
 router.post('/collectiondetails', auth, async (req, res) => {
-  let erc721Address = req.body.erc721Address;
-  erc721Address = toLowerCase(erc721Address);
+  try{    
+    let erc721Address = req.body.erc721Address;
+    erc721Address = toLowerCase(erc721Address);
 
-  let owner = extractAddress(req, res);
-  let signature = req.body.signature;
-  let retrievedAddr = req.body.signatureAddress;
-  
-  if (!ethers.utils.isAddress(erc721Address))
-    return res.json({
-      status: 'failed',
-      data: 'NFT Contract Address invalid'
-    });
+    let owner = extractAddress(req, res);
+    let isArtistOrAdmin = await isArtist(owner);
+    if (isArtistOrAdmin) {
+      let signature = req.body.signature;
+      let retrievedAddr = req.body.signatureAddress;
+      
+      if (!ethers.utils.isAddress(erc721Address))
+        return res.json({
+          status: 'failed',
+          data: 'NFT Contract Address invalid'
+        });
 
-  let isValidsignature = await validateSignature(
-    owner,
-    signature,
-    retrievedAddr
-  );
-  if (!isValidsignature)
-    return res.status(400).json({
-      status: 'failed',
-      data: 'Invalid signature from user'
-    });
-    
-  // validate to see whether the contract is either 721 or 1155, otherwise, reject
-
-  try {
-    let is721 = await isvalidERC721(erc721Address);
-    if (!is721) {
-      let is1155 = await isValidERC1155(erc721Address);
-      if (!is1155)
+      let isValidsignature = await validateSignature(
+        owner,
+        signature,
+        retrievedAddr
+      );
+      if (!isValidsignature)
         return res.status(400).json({
           status: 'failed',
-          data: 'Invalid NFT Collection Address'
+          data: 'Invalid signature from user'
         });
+        
+      // validate to see whether the contract is either 721 or 1155, otherwise, reject
+
+      try {
+        let is721 = await isvalidERC721(erc721Address);
+        if (!is721) {
+          let is1155 = await isValidERC1155(erc721Address);
+          if (!is1155)
+            return res.status(400).json({
+              status: 'failed',
+              data: 'Invalid NFT Collection Address'
+            });
+        }
+      } catch (error) {
+        Logger.error(error);
+        return res.status(400).json({
+          status: 'failed',
+          data: ''
+        });
+      }
+
+      let collectionName = req.body.collectionName;
+      let description = req.body.description;
+      let categories = req.body.categories;
+      categories = categories.split(',');
+      let logoImageHash = req.body.logoImageHash;
+      let siteUrl = req.body.siteUrl;
+      let discord = req.body.discord;
+      let twitterHandle = req.body.twitterHandle;
+      let mediumHandle = req.body.mediumHandle;
+      let telegram = req.body.telegram;
+      let instagram = req.body.instagram;
+      let email = req.body.email;
+
+      let feeRecipient = req.body.feeRecipient
+        ? toLowerCase(req.body.feeRecipient)
+        : '';
+      let royalty = req.body.royalty ? parseFloat(req.body.royalty) : 0;
+
+      let collection = await Collection.findOne({ erc721Address: erc721Address });
+      // verify if 1155 smart contracts
+      let is1155 = await isValidERC1155(erc721Address);
+
+      let isInternal = await FactoryUtils.isInternalCollection(
+        erc721Address,
+        !is1155
+      );
+      // this is for editing a collection
+      if (collection) {
+        // disable modifying an existing collection
+        return res.json({
+          status: 'failed',
+          data: 'NFT Contract Address already exists'
+        });
+
+        //collection.erc721Address = erc721Address;
+        //collection.collectionName = collectionName;
+        //collection.description = description;
+        //collection.categories = categories;
+        //collection.logoImageHash = logoImageHash;
+        //collection.siteUrl = siteUrl;
+        //collection.discord = discord;
+        //collection.twitterHandle = twitterHandle;
+        //collection.mediumHandle = mediumHandle;
+        //collection.telegram = telegram;
+        //collection.instagramHandle = instagram;
+        //collection.email = email;
+        //collection.feeRecipient = feeRecipient;
+        //collection.royalty = royalty;
+
+        //let _collection = await collection.save();
+        //if (_collection)
+        //  return res.send({
+        //    status: "success",
+        //    data: _collection.toJson(),
+        //  });
+        //else
+        //  return res.send({
+        //    status: "failed",
+        // });
+      } else {
+        /* this is for new collection review */
+        if (is1155) {
+          // need to add a new 1155 collection
+          let sc_1155 = new ERC1155CONTRACT();
+          sc_1155.address = erc721Address;
+          sc_1155.name = collectionName;
+          let symbol = await getSymbol(erc721Address);
+          Logger.debug('symbol is', symbol);
+          sc_1155.symbol = symbol || 'Symbol';
+          sc_1155.isVerified = true;
+          sc_1155.isAppropriate = true;
+          await sc_1155.save();
+          // save new category
+          let category = new Category();
+          category.minterAddress = erc721Address;
+          category.type = 1155;
+          await category.save();
+        } else {
+          // need to add a new erc721 contract
+          let ifExists = await ERC721CONTRACT.findOne({
+            address: erc721Address
+          });
+          if (!ifExists) {
+            let sc_721 = new ERC721CONTRACT();
+            sc_721.address = erc721Address;
+            sc_721.name = collectionName;
+            let symbol = await getSymbol(erc721Address);
+            sc_721.symbol = symbol || 'Symbol';
+            sc_721.isVerified = true;
+            sc_721.isAppropriate = true;
+            await sc_721.save();
+          }
+
+          let categoryExists = await Category.findOne({
+            minterAddress: erc721Address
+          });
+
+          if (!categoryExists) {
+            let category = new Category();
+            category.minterAddress = erc721Address;
+            category.type = 721;
+            await category.save();
+          } else {
+            return res.json({
+              status: 'failed',
+              data: 'Category minter address already exists!'
+            });
+          }
+        }
+        // add a new collection
+        let _collection = new Collection();
+        _collection.erc721Address = erc721Address;
+        _collection.owner = owner;
+        _collection.collectionName = collectionName;
+        _collection.description = description;
+        _collection.categories = categories;
+        _collection.logoImageHash = logoImageHash;
+        _collection.siteUrl = siteUrl;
+        _collection.discord = discord;
+        _collection.twitterHandle = twitterHandle;
+        _collection.mediumHandle = mediumHandle;
+        _collection.telegram = telegram;
+        _collection.instagramHandle = instagram;
+
+        _collection.isInternal = isInternal[0];
+        if (isInternal[0]) {
+          _collection.isOwnerble = isInternal[1];
+          _collection.status = true;
+        } else _collection.status = false;
+        _collection.email = email;
+        _collection.feeRecipient = feeRecipient;
+        _collection.royalty = royalty;
+        _collection.signature = signature;
+        _collection.signatureAddress = retrievedAddr;
+
+        let newCollection = await _collection.save();
+        if (newCollection) {
+          // notify admin about a new app
+          if (!isInternal[0]) {
+            applicationMailer.notifyAdminForNewCollectionApplication(); //notify admin
+            applicationMailer.notifyInternalCollectionDeployment(
+              erc721Address,
+              email
+            ); // notify register
+          }
+          return res.send({
+            status: 'success',
+            data: newCollection.toJson()
+          });
+        } else
+          return res.send({
+            status: 'failed'
+          });
+      }
+    } else {
+      return res.json({
+        status: 'failed',
+        data: 'Only Admin or Artists can register Collections!'
+      });
     }
   } catch (error) {
     Logger.error(error);
     return res.status(400).json({
-      status: 'failed',
-      data: ''
+      status: 'failed'
     });
-  }
-
-  let collectionName = req.body.collectionName;
-  let description = req.body.description;
-  let categories = req.body.categories;
-  categories = categories.split(',');
-  let logoImageHash = req.body.logoImageHash;
-  let siteUrl = req.body.siteUrl;
-  let discord = req.body.discord;
-  let twitterHandle = req.body.twitterHandle;
-  let mediumHandle = req.body.mediumHandle;
-  let telegram = req.body.telegram;
-  let instagram = req.body.instagram;
-  let email = req.body.email;
-
-  let feeRecipient = req.body.feeRecipient
-    ? toLowerCase(req.body.feeRecipient)
-    : '';
-  let royalty = req.body.royalty ? parseFloat(req.body.royalty) : 0;
-
-  let collection = await Collection.findOne({ erc721Address: erc721Address });
-  // verify if 1155 smart contracts
-  let is1155 = await isValidERC1155(erc721Address);
-
-  let isInternal = await FactoryUtils.isInternalCollection(
-    erc721Address,
-    !is1155
-  );
-  // this is for editing a collection
-  if (collection) {
-    // disable modifying an existing collection
-    return res.json({
-      status: 'failed',
-      data: 'NFT Contract Address already exists'
-    });
-
-    //collection.erc721Address = erc721Address;
-    //collection.collectionName = collectionName;
-    //collection.description = description;
-    //collection.categories = categories;
-    //collection.logoImageHash = logoImageHash;
-    //collection.siteUrl = siteUrl;
-    //collection.discord = discord;
-    //collection.twitterHandle = twitterHandle;
-    //collection.mediumHandle = mediumHandle;
-    //collection.telegram = telegram;
-    //collection.instagramHandle = instagram;
-    //collection.email = email;
-    //collection.feeRecipient = feeRecipient;
-    //collection.royalty = royalty;
-
-    //let _collection = await collection.save();
-    //if (_collection)
-    //  return res.send({
-    //    status: "success",
-    //    data: _collection.toJson(),
-    //  });
-    //else
-    //  return res.send({
-    //    status: "failed",
-    // });
-  } else {
-    /* this is for new collection review */
-    if (is1155) {
-      // need to add a new 1155 collection
-      let sc_1155 = new ERC1155CONTRACT();
-      sc_1155.address = erc721Address;
-      sc_1155.name = collectionName;
-      let symbol = await getSymbol(erc721Address);
-      Logger.debug('symbol is', symbol);
-      sc_1155.symbol = symbol || 'Symbol';
-      sc_1155.isVerified = true;
-      sc_1155.isAppropriate = true;
-      await sc_1155.save();
-      // save new category
-      let category = new Category();
-      category.minterAddress = erc721Address;
-      category.type = 1155;
-      await category.save();
-    } else {
-      // need to add a new erc721 contract
-      let ifExists = await ERC721CONTRACT.findOne({
-        address: erc721Address
-      });
-      if (!ifExists) {
-        let sc_721 = new ERC721CONTRACT();
-        sc_721.address = erc721Address;
-        sc_721.name = collectionName;
-        let symbol = await getSymbol(erc721Address);
-        sc_721.symbol = symbol || 'Symbol';
-        sc_721.isVerified = true;
-        sc_721.isAppropriate = true;
-        await sc_721.save();
-      }
-
-      let categoryExists = await Category.findOne({
-        minterAddress: erc721Address
-      });
-
-      if (!categoryExists) {
-        let category = new Category();
-        category.minterAddress = erc721Address;
-        category.type = 721;
-        await category.save();
-      } else {
-        return res.json({
-          status: 'failed',
-          data: 'Category minter address already exists!'
-        });
-      }
-    }
-    // add a new collection
-    let _collection = new Collection();
-    _collection.erc721Address = erc721Address;
-    _collection.owner = owner;
-    _collection.collectionName = collectionName;
-    _collection.description = description;
-    _collection.categories = categories;
-    _collection.logoImageHash = logoImageHash;
-    _collection.siteUrl = siteUrl;
-    _collection.discord = discord;
-    _collection.twitterHandle = twitterHandle;
-    _collection.mediumHandle = mediumHandle;
-    _collection.telegram = telegram;
-    _collection.instagramHandle = instagram;
-
-    _collection.isInternal = isInternal[0];
-    if (isInternal[0]) {
-      _collection.isOwnerble = isInternal[1];
-      _collection.status = true;
-    } else _collection.status = false;
-    _collection.email = email;
-    _collection.feeRecipient = feeRecipient;
-    _collection.royalty = royalty;
-    _collection.signature = signature;
-    _collection.signatureAddress = retrievedAddr;
-
-    let newCollection = await _collection.save();
-    if (newCollection) {
-      // notify admin about a new app
-      if (!isInternal[0]) {
-        applicationMailer.notifyAdminForNewCollectionApplication(); //notify admin
-        applicationMailer.notifyInternalCollectionDeployment(
-          erc721Address,
-          email
-        ); // notify register
-      }
-      return res.send({
-        status: 'success',
-        data: newCollection.toJson()
-      });
-    } else
-      return res.send({
-        status: 'failed'
-      });
   }
 });
 
@@ -285,14 +315,23 @@ router.post('/getMintableCollections', auth, async (req, res) => {
   }
 });
 
-router.post('/getReviewApplications', admin_auth, async (req, res) => {
-  try {
-    let applications = await Collection.find({ status: false });
-    return res.json({
-      status: 'success',
-      data: applications
-    });
-  } catch (error) {
+router.post('/getReviewApplications', auth, async (req, res) => {
+  let sender = extractAddress(req, res);
+  let isAuth = isAdmin(sender);
+  if (isAuth) {
+    try {
+      let applications = await Collection.find({ status: false });
+      return res.json({
+        status: 'success',
+        data: applications
+      });
+    } catch (error) {
+      Logger.error(error);
+      return res.json({
+        status: 'failed'
+      });
+    }
+  } else {
     Logger.error(error);
     return res.json({
       status: 'failed'
@@ -386,7 +425,7 @@ router.post('/reviewApplication', admin_auth, async (req, res) => {
           status: 'failed'
         });
       }
-      // approve -- udpate collection and send email
+      // approve -- update collection and send email
       collection.status = true;
       await collection.save();
       // now update isAppropriate
@@ -409,7 +448,7 @@ router.post('/reviewApplication', admin_auth, async (req, res) => {
       // send email
       applicationMailer.sendApplicationReviewedEmail({
         to: email,
-        subject: 'Collection Registerd Successfully!'
+        subject: 'Collection Registered Successfully!'
       });
       return res.json({
         status: 'success'

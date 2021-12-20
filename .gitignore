@@ -11,15 +11,10 @@ test.js
 /logs
 .env.sample
 .firebase/hosting..cache
-.env.sample
 .firebase/hosting.YXBpcw.cache
 .firebaserc
 .firebase
 firebase.json
 
-package-lock.json
-.env
 404.html
-Dockerfile
 index.html
-config/fantomsea_tommy_service.json

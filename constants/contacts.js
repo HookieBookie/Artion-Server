@@ -6,8 +6,8 @@ const FantomContacts = {
   reddit: "https://reddit.com/r/FantomFoundation",
   artionUnsubscribe: `https://${
     process.env.RUNTIME ? "testnet." : ""
-  }artion.io/settings/notification`,
-  email: "support.artion@fantom.foundation",
+  }nfthab.com/settings/notification`,
+  email: "nfthab@protonmail.com",
 };
 
 module.exports = FantomContacts;

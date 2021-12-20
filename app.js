@@ -48,6 +48,7 @@ require("./models/bundlelike");
 require("./models/factorycollection");
 require("./models/notificationsetting");
 require("./models/moderator");
+require("./models/artist");
 require("./models/turkwork");
 require("./models/sitelock");
 require("./models/paytoken");

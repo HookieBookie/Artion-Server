@@ -1,17 +1,18 @@
 require("dotenv").config();
 const extractAddress = require("../../services/address.utils");
-const AdminAddresses = require("../../config/adminAddress");
+const adminAddress = process.env.ADMINADDRESS;
 
 const admin_auth = (req, res, next) => {
   try {
     let address = extractAddress(req, res);
-    if (AdminAddresses.includes(address)) {
+    if (address == adminAddress) {
       next();
-    } else
+    } else {
       return res.status(400).json({
         status: "failed",
-        data: "only admins are allowed for this api",
+        data: "only admins are allowed to use this api",
       });
+    }
   } catch (error) {
     return res.json({
       status: "failed",
